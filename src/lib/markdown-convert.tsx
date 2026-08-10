@@ -1,11 +1,13 @@
 import React from "react";
 
 const listRegex = /^(\d+\.|-) /;
+const blockquoteRegex = /^>\s?/;
 
 enum ParseState {
     UL = 'UL',
     OL = 'OL',
-    P = 'P'
+    P = 'P',
+    BQ = 'BQ'
 }
 
 const inlineLinkRegex = /\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s]+)/g;
@@ -71,6 +73,14 @@ function flush(state: ParseState | null, curr: React.ReactNode[], key: string): 
         });
         return <p key={key}>{nodes}</p>;
     }
+    if (state === ParseState.BQ) {
+        const nodes: React.ReactNode[] = [];
+        curr.forEach((line, idx) => {
+            if (idx > 0) nodes.push(' ');
+            nodes.push(...parseInline(line as string, `${key}-bq-${idx}`));
+        });
+        return <blockquote key={key}>{nodes}</blockquote>;
+    }
     return null;
 }
 
@@ -120,12 +130,26 @@ export function markdownToHtml(content: string) {
             continue;
         }
 
+        const bqMatch = line.match(blockquoteRegex);
+        if (bqMatch) {
+            if (state && state !== ParseState.BQ) {
+                const flushed = flush(state, curr, `flush-${blockKey}`);
+                if (flushed) results.push(flushed);
+                curr = [];
+            }
+
+            state = ParseState.BQ;
+            const contentText = line.slice(bqMatch[0].length);
+            curr.push(contentText);
+            continue;
+        }
+
         if (state && state !== ParseState.P) {
             const flushed = flush(state, curr, `flush-${blockKey}`);
             if (flushed) results.push(flushed);
             curr = [];
         }
-        
+
         state = ParseState.P;
         curr.push(line);
     }
