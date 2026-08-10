@@ -93,27 +93,32 @@ async function buildCss(distDir: string) {
 }
 
 
-async function buildIndex(items){
-            
+async function buildIndex(items, distDir: string){
+
             let htmlContent=(<ul>
                 {items.map(({title, hash, date}, index) => (
                     <li key={index}>
-                        <a href={`${basePath}/${hash}.html`}>{title}</a><span> - </span>
-                        <span>{date.toLocaleDateString("en-US", {year: "numeric", month: "long", day: "numeric", timeZone: "UTC"})}</span>
+                        <a href={`${basePath}/${hash}.html`}>{title}</a>
+                        {date && (
+                            <>
+                                <span> - </span>
+                                <span>{date.toLocaleDateString("en-US", {year: "numeric", month: "long", day: "numeric", timeZone: "UTC"})}</span>
+                            </>
+                        )}
                     </li>
                 ))}
             </ul>
             )
             const staticHtml = renderToStaticMarkup(<PageLayout title="Home" description="Home">{htmlContent}</PageLayout>);
-    
 
-    write("index.html", staticHtml);
+
+    write("index.html", staticHtml, distDir);
 }
 
 
 async function build() {
-    const pagesDir = "./_pages/";
-    const distDir = "./dist/";
+    const pagesDir = process.env.PAGES_DIR ?? "./_pages/";
+    const distDir = process.env.DIST_DIR ?? "./dist/";
 
     try {
         await buildCss(distDir);
@@ -121,11 +126,11 @@ async function build() {
         const glob = new Bun.Glob("*.md");
         const files = [...glob.scanSync({cwd: pagesDir})];
         let names = [];
-        
+
         for (const file of files) {
             const shortName = file.replace(/\.md$/,"");
             const hash = generateHash(shortName);
-            const content = await read(file);
+            const content = await read(file, pagesDir);
             const frontmatter = parseTOML(content);
             const body = stripFrontmatter(content);
             const date = parseDate(frontmatter.date);
@@ -133,16 +138,16 @@ async function build() {
             const htmlContent = render(body, title, date, hash);
             const staticHtml = renderToStaticMarkup(<PageLayout title={title} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
 
-            write(hash+".html", staticHtml);
+            write(hash+".html", staticHtml, distDir);
             names.push({title, hash, date});
         }
         console.log(names);
-        buildIndex(names);
+        buildIndex(names, distDir);
     }
     catch (error) {
         console.error(error)
     }
-    
+
 }
 
 

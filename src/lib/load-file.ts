@@ -1,9 +1,9 @@
-const path = "./_pages/";
+import { join } from "path";
 
-export async function read(name: string): string {
-    const file = Bun.file(path+name);
+const defaultDir = "./_pages/";
+
+export async function read(name: string, dir: string = defaultDir): Promise<string> {
+    const file = Bun.file(join(dir, name));
     const text = await file.text();
     return text + "\n";
 }
-
-

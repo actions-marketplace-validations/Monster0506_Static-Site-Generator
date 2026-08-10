@@ -1,5 +1,7 @@
-const outputDir = "./dist/"
+import { join } from "path";
 
-export async function write(fname: string, content: string): void {
-    await Bun.write(outputDir + fname, content)
+const defaultDir = "./dist/";
+
+export async function write(fname: string, content: string, dir: string = defaultDir): Promise<void> {
+    await Bun.write(join(dir, fname), content);
 }
