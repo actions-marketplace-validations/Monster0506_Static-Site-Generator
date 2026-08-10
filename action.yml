@@ -1,0 +1,46 @@
+name: 'Bun Markdown Site Builder'
+description: 'Builds a static blog from markdown source and uploads it as a GitHub Pages artifact.'
+
+inputs:
+  pages-dir:
+    description: 'Directory in the calling repo containing markdown source files.'
+    required: false
+    default: '_pages'
+  dist-dir:
+    description: 'Directory in the calling repo to write the built site to.'
+    required: false
+    default: 'dist'
+  base-path:
+    description: 'Root-relative base path to prefix internal links with (e.g. /my-repo). Leave empty for a user/org page or a custom domain.'
+    required: false
+    default: ''
+
+outputs:
+  dist-path:
+    description: 'Path (relative to the calling repo root) of the built site.'
+    value: ${{ inputs.dist-dir }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
+    - name: Install generator dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: bun install --frozen-lockfile
+
+    - name: Build site
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: bun run build.tsx
+      env:
+        PAGES_DIR: ${{ github.workspace }}/${{ inputs.pages-dir }}
+        DIST_DIR: ${{ github.workspace }}/${{ inputs.dist-dir }}
+        BASE_PATH: ${{ inputs.base-path }}
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ${{ inputs.dist-dir }}
