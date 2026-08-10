@@ -1,5 +1,6 @@
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
+import tailwindPlugin from "bun-plugin-tailwind";
 import {read} from "./src/lib/load-file";
 import {write} from "./src/lib/write-file";
 import {markdownToHtml} from "./src/lib/markdown-convert";
@@ -19,37 +20,50 @@ function PageLayout({title, description, children}: LayoutProps) {
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <title>{title}</title>
             <meta name="description" content={description} />
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+            <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
+            <link rel="stylesheet" href="/blog.css" />
         </head>
-        <body className="bg-slate-50 text-slate-900 min-h-screen py-12 px-4">
-            <main className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-                <nav className="mb-12 border-b border-slate-100 pb-4">
-                    <a href="/" className="font-semibold text-indigo-600 hover:text-indigo-800">Blog</a>
-                </nav>
+        <body>
+            <div className="site-shell">
+                <header className="site-header">
+                    <a href="/" className="site-wordmark">Home</a>
+                </header>
             {children}
-            </main>
+            </div>
         </body>
-    </html>   
+    </html>
     );
-} 
+}
 
 
-function render(content: string, title: string, date: Date): React.ReactNode {
+function render(content: string, title: string, date: Date | null, hash: number): React.ReactNode {
     return (
-    <article className="prose prose-slate lg:prose-lg max-w-none">
-            <header className="mb-8">
-              <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
-                {title}
-              </h1>
-              {date && (
-                <time className="text-sm text-slate-500 font-medium">
-                  Published on {date}
-                </time>
-              )}
-            </header>
-            {markdownToHtml(content)}
+    <article>
+            <h1 className="post-title">{title}</h1>
+            <p className="post-meta">
+                #{hash}
+                {date && (
+                    <>
+                        {" · "}
+                        <time dateTime={date.toISOString()}>
+                            {date.toLocaleDateString("en-US", {year: "numeric", month: "long", day: "numeric", timeZone: "UTC"})}
+                        </time>
+                    </>
+                )}
+            </p>
+            <div className="post-body">{markdownToHtml(content)}</div>
           </article>
     )
 
+}
+
+function parseDate(value: unknown): Date | null {
+    if (typeof value !== "string") return null;
+    const time = Date.parse(value);
+    if (isNaN(time)) return null;
+    return new Date(time);
 }
 
 
@@ -62,11 +76,27 @@ function generateHash(c: string): number {
     return hash;
 }
 
+async function buildCss(distDir: string) {
+    const result = await Bun.build({
+        entrypoints: ["./src/blog.css"],
+        outdir: distDir,
+        naming: "[name].css",
+        plugins: [tailwindPlugin],
+    });
+
+    if (!result.success) {
+        for (const log of result.logs) console.error(log);
+        throw new Error("CSS build failed");
+    }
+}
+
 async function build() {
     const pagesDir = "./_pages/";
     const distDir = "./dist/";
-    
+
     try {
+        await buildCss(distDir);
+
         const glob = new Bun.Glob("*.md");
         const files = [...glob.scanSync({cwd: pagesDir})];
         
@@ -76,7 +106,8 @@ async function build() {
             const content = await read(file);
             const frontmatter = parseTOML(content);
             const body = stripFrontmatter(content);
-            const htmlContent = render(body, frontmatter.title?? "Untitled", Date.now());
+            const date = parseDate(frontmatter.date);
+            const htmlContent = render(body, frontmatter.title?? "Untitled", date, hash);
             const staticHtml = renderToStaticMarkup(<PageLayout title={frontmatter.title?? "Untitled"} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
 
             write(hash+".html", staticHtml);

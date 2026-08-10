@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-paper: #f6f5f0;
+  --color-ink: #1e2320;
+  --color-ink-soft: #5b6560;
+  --color-rule: #d9d6cb;
+  --color-pine: #2f6f4e;
+
+  --font-mono: "Fira Code", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink;
+    font-family: var(--font-mono);
+  }
+
+  a {
+    @apply text-pine underline decoration-rule underline-offset-4;
+  }
+
+  a:hover {
+    @apply decoration-pine;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-pine);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .site-shell {
+    @apply max-w-2xl mx-auto px-6 py-16;
+  }
+
+  .site-header {
+    @apply flex items-baseline justify-between mb-12;
+  }
+
+  .site-wordmark {
+    @apply font-mono text-sm tracking-[0.2em] uppercase text-ink no-underline;
+  }
+
+  .site-tagline {
+    @apply hidden sm:block font-mono text-xs tracking-wide text-ink-soft;
+  }
+
+  .post-title {
+    @apply font-mono text-3xl font-semibold text-ink tracking-tight leading-tight mb-3;
+  }
+
+  .post-meta {
+    @apply font-mono text-xs uppercase tracking-wide text-ink-soft mb-8;
+  }
+
+  .post-body {
+    @apply prose max-w-none;
+    font-family: var(--font-mono);
+    --tw-prose-body: var(--color-ink);
+    --tw-prose-headings: var(--color-ink);
+    --tw-prose-links: var(--color-pine);
+    --tw-prose-bold: var(--color-ink);
+    --tw-prose-bullets: var(--color-rule);
+    --tw-prose-counters: var(--color-pine);
+    --tw-prose-hr: var(--color-rule);
+    --tw-prose-quotes: var(--color-ink-soft);
+    --tw-prose-quote-borders: var(--color-pine);
+    --tw-prose-code: var(--color-pine);
+  }
+
+  .post-body :where(h1, h2, h3, h4, h5, h6) {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+}
