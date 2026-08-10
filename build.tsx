@@ -2,6 +2,7 @@ import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import tailwindPlugin from "bun-plugin-tailwind";
 import {join} from "path";
+import {unlink} from "fs/promises";
 import {read} from "./src/lib/load-file";
 import {write} from "./src/lib/write-file";
 import {markdownToHtml} from "./src/lib/markdown-convert";
@@ -28,10 +29,12 @@ function DefaultHeader({basePath}: SlotProps) {
     return <a href={`${basePath}/`} className="site-wordmark">Home</a>;
 }
 
-async function loadSiteConfig(): Promise<SiteConfig> {
+function siteConfigPath(): string {
     const root = process.env.GITHUB_WORKSPACE ?? process.cwd();
-    const configPath = join(root, "_site.config.tsx");
+    return join(root, "_site.config.tsx");
+}
 
+async function loadSiteConfig(configPath: string): Promise<SiteConfig> {
     if (!(await Bun.file(configPath).exists())) return {};
 
     const mod = await import(configPath);
@@ -123,17 +126,29 @@ function generateHash(c: string): number {
     return hash >>> 0;
 }
 
-async function buildCss(distDir: string) {
-    const result = await Bun.build({
-        entrypoints: ["./src/blog.css"],
-        outdir: distDir,
-        naming: "[name].css",
-        plugins: [tailwindPlugin],
-    });
+async function buildCss(distDir: string, configPath: string) {
+    let css = await Bun.file("./src/blog.css").text();
+    if (await Bun.file(configPath).exists()) {
+        css += `\n@source "${configPath.replace(/\\/g, "/")}";\n`;
+    }
 
-    if (!result.success) {
-        for (const log of result.logs) console.error(log);
-        throw new Error("CSS build failed");
+    const entry = join(import.meta.dir, "src", `.blog-tailwind-entry-${Date.now()}.css`);
+    await Bun.write(entry, css);
+
+    try {
+        const result = await Bun.build({
+            entrypoints: [entry],
+            outdir: distDir,
+            naming: "blog.css",
+            plugins: [tailwindPlugin],
+        });
+
+        if (!result.success) {
+            for (const log of result.logs) console.error(log);
+            throw new Error("CSS build failed");
+        }
+    } finally {
+        await unlink(entry).catch(() => {});
     }
 }
 
@@ -166,9 +181,10 @@ async function build() {
     const distDir = process.env.DIST_DIR ?? "./dist/";
 
     try {
-        await buildCss(distDir);
+        const configPath = siteConfigPath();
+        await buildCss(distDir, configPath);
 
-        const siteConfig = await loadSiteConfig();
+        const siteConfig = await loadSiteConfig(configPath);
         const slots: ResolvedSlots = {
             Header: siteConfig.Header ?? DefaultHeader,
             Footer: siteConfig.Footer,
