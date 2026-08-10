@@ -1,6 +1,7 @@
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import tailwindPlugin from "bun-plugin-tailwind";
+import {join} from "path";
 import {read} from "./src/lib/load-file";
 import {write} from "./src/lib/write-file";
 import {markdownToHtml} from "./src/lib/markdown-convert";
@@ -62,6 +63,9 @@ function render(content: string, title: string, date: Date | null, hash: number)
 }
 
 function parseDate(value: unknown): Date | null {
+    if (typeof value === "number") {
+        return isNaN(value) ? null : new Date(value * 1000);
+    }
     if (typeof value !== "string") return null;
     const time = Date.parse(value);
     if (isNaN(time)) return null;
@@ -96,7 +100,7 @@ async function buildCss(distDir: string) {
 async function buildIndex(items, distDir: string){
 
             let htmlContent=(<ul>
-                {items.reverse().map(({title, hash, date}, index) => (
+                {items.map(({title, hash, date}, index) => (
                     <li key={index}>
                         <a href={`${basePath}/${hash}.html`}>{title}</a>
                         {date && (
@@ -139,8 +143,10 @@ async function build() {
             const staticHtml = renderToStaticMarkup(<PageLayout title={title} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
 
             write(hash+".html", staticHtml, distDir);
-            names.push({title, hash, date});
+            const sortTime = date ? date.getTime() : Bun.file(join(pagesDir, file)).lastModified;
+            names.push({title, hash, date, sortTime});
         }
+        names.sort((a, b) => b.sortTime - a.sortTime);
         console.log(names);
         buildIndex(names, distDir);
     }
