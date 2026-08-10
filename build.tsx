@@ -6,6 +6,8 @@ import {write} from "./src/lib/write-file";
 import {markdownToHtml} from "./src/lib/markdown-convert";
 import {parseTOML, stripFrontmatter} from "./src/lib/parse-frontmatter";
 
+const basePath = process.env.BASE_PATH ?? "";
+
 interface LayoutProps {
     title: string,
     description: string,
@@ -23,12 +25,12 @@ function PageLayout({title, description, children}: LayoutProps) {
             <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
             <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
-            <link rel="stylesheet" href="/blog.css" />
+            <link rel="stylesheet" href={`${basePath}/blog.css`} />
         </head>
         <body>
             <div className="site-shell">
                 <header className="site-header">
-                    <a href="/" className="site-wordmark">Home</a>
+                    <a href={`${basePath}/`} className="site-wordmark">Home</a>
                 </header>
             {children}
             </div>
@@ -96,7 +98,7 @@ async function buildIndex(items){
             let htmlContent=(<ul>
                 {items.map(({title, hash, date}, index) => (
                     <li key={index}>
-                        <a href={hash + ".html"}>{title}</a><span> - </span>
+                        <a href={`${basePath}/${hash}.html`}>{title}</a><span> - </span>
                         <span>{date.toLocaleDateString("en-US", {year: "numeric", month: "long", day: "numeric", timeZone: "UTC"})}</span>
                     </li>
                 ))}
