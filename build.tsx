@@ -96,7 +96,7 @@ async function buildCss(distDir: string) {
 async function buildIndex(items, distDir: string){
 
             let htmlContent=(<ul>
-                {items.map(({title, hash, date}, index) => (
+                {items.reverse().map(({title, hash, date}, index) => (
                     <li key={index}>
                         <a href={`${basePath}/${hash}.html`}>{title}</a>
                         {date && (
