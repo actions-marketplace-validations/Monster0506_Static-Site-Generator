@@ -87,7 +87,7 @@ date='2026-01-05'
 - and more content
 ```
 
-The action reads `title` and `date` from the frontmatter. The value of `date` must be a string that TOML can parse as a date, for example `'2026-01-05'`.
+The action reads `title` and `date` from the frontmatter. The value of `date` must be a string or UNIX epoch time in seconds that TOML can parse as a date, for example `'2026-01-05'`.
 
 If a post has no `date` value, the action still builds the post. The post page does not show a published-date line.
 
