@@ -39,6 +39,7 @@ runs:
         PAGES_DIR: ${{ github.workspace }}/${{ inputs.pages-dir }}
         DIST_DIR: ${{ github.workspace }}/${{ inputs.dist-dir }}
         BASE_PATH: ${{ inputs.base-path }}
+        NODE_PATH: ${{ github.action_path }}/node_modules
 
     - name: Upload Pages artifact
       uses: actions/upload-pages-artifact@v3

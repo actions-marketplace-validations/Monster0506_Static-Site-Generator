@@ -9,13 +9,48 @@ import {parseTOML, stripFrontmatter} from "./src/lib/parse-frontmatter";
 
 const basePath = process.env.BASE_PATH ?? "";
 
+type SlotProps = {basePath: string};
+type SlotComponent = (props: SlotProps) => React.ReactNode;
+
+interface SiteConfig {
+    Header?: SlotComponent,
+    Footer?: SlotComponent,
+    HeadExtra?: SlotComponent,
+}
+
+interface ResolvedSlots {
+    Header: SlotComponent,
+    Footer?: SlotComponent,
+    HeadExtra?: SlotComponent,
+}
+
+function DefaultHeader({basePath}: SlotProps) {
+    return <a href={`${basePath}/`} className="site-wordmark">Home</a>;
+}
+
+async function loadSiteConfig(): Promise<SiteConfig> {
+    const root = process.env.GITHUB_WORKSPACE ?? process.cwd();
+    const configPath = join(root, "_site.config.tsx");
+
+    if (!(await Bun.file(configPath).exists())) return {};
+
+    const mod = await import(configPath);
+    return {
+        Header: mod.Header,
+        Footer: mod.Footer,
+        HeadExtra: mod.HeadExtra,
+    };
+}
+
 interface LayoutProps {
     title: string,
     description: string,
-    children: React.ReactNode
+    children: React.ReactNode,
+    slots: ResolvedSlots,
 }
 
-function PageLayout({title, description, children}: LayoutProps) {
+function PageLayout({title, description, children, slots}: LayoutProps) {
+    const {Header, Footer, HeadExtra} = slots;
     return (
     <html lang="en">
         <head>
@@ -27,13 +62,19 @@ function PageLayout({title, description, children}: LayoutProps) {
             <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
             <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
             <link rel="stylesheet" href={`${basePath}/blog.css`} />
+            {HeadExtra && <HeadExtra basePath={basePath} />}
         </head>
         <body>
             <div className="site-shell">
                 <header className="site-header">
-                    <a href={`${basePath}/`} className="site-wordmark">Home</a>
+                    <Header basePath={basePath} />
                 </header>
             {children}
+            {Footer && (
+                <footer className="site-footer">
+                    <Footer basePath={basePath} />
+                </footer>
+            )}
             </div>
         </body>
     </html>
@@ -97,7 +138,7 @@ async function buildCss(distDir: string) {
 }
 
 
-async function buildIndex(items, distDir: string){
+async function buildIndex(items, distDir: string, slots: ResolvedSlots){
 
             let htmlContent=(<ul>
                 {items.map(({title, hash, date}, index) => (
@@ -113,7 +154,7 @@ async function buildIndex(items, distDir: string){
                 ))}
             </ul>
             )
-            const staticHtml = renderToStaticMarkup(<PageLayout title="Home" description="Home">{htmlContent}</PageLayout>);
+            const staticHtml = renderToStaticMarkup(<PageLayout title="Home" description="Home" slots={slots}>{htmlContent}</PageLayout>);
 
 
     write("index.html", staticHtml, distDir);
@@ -126,6 +167,13 @@ async function build() {
 
     try {
         await buildCss(distDir);
+
+        const siteConfig = await loadSiteConfig();
+        const slots: ResolvedSlots = {
+            Header: siteConfig.Header ?? DefaultHeader,
+            Footer: siteConfig.Footer,
+            HeadExtra: siteConfig.HeadExtra,
+        };
 
         const glob = new Bun.Glob("*.md");
         const files = [...glob.scanSync({cwd: pagesDir})];
@@ -140,7 +188,7 @@ async function build() {
             const date = parseDate(frontmatter.date);
             const title= frontmatter.title?? "Untitled";
             const htmlContent = render(body, title, date, hash);
-            const staticHtml = renderToStaticMarkup(<PageLayout title={title} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
+            const staticHtml = renderToStaticMarkup(<PageLayout title={title} description={frontmatter.description??""} slots={slots}>{htmlContent}</PageLayout>);
 
             write(hash+".html", staticHtml, distDir);
             const sortTime = date ? date.getTime() : Bun.file(join(pagesDir, file)).lastModified;
@@ -148,10 +196,11 @@ async function build() {
         }
         names.sort((a, b) => b.sortTime - a.sortTime);
         console.log(names);
-        buildIndex(names, distDir);
+        buildIndex(names, distDir, slots);
     }
     catch (error) {
-        console.error(error)
+        console.error(error);
+        process.exit(1);
     }
 
 }
