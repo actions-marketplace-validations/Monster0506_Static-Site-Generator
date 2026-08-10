@@ -3,7 +3,7 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {read} from "./src/lib/load-file";
 import {write} from "./src/lib/write-file";
 import {markdownToHtml} from "./src/lib/markdown-convert";
-import {parseTOML} from "./src/lib/parse-frontmatter";
+import {parseTOML, stripFrontmatter} from "./src/lib/parse-frontmatter";
 
 interface LayoutProps {
     title: string,
@@ -75,7 +75,8 @@ async function build() {
             const hash = generateHash(shortName);
             const content = await read(file);
             const frontmatter = parseTOML(content);
-            const htmlContent = render(content, frontmatter.title?? "Untitled", Date.now());
+            const body = stripFrontmatter(content);
+            const htmlContent = render(body, frontmatter.title?? "Untitled", Date.now());
             const staticHtml = renderToStaticMarkup(<PageLayout title={frontmatter.title?? "Untitled"} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
 
             write(hash+".html", staticHtml);
