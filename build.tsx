@@ -73,7 +73,7 @@ function generateHash(c: string): number {
         hash = (hash << 5) - hash + char.charCodeAt(0);
         hash |= 0;
     }
-    return hash;
+    return hash >>> 0;
 }
 
 async function buildCss(distDir: string) {
