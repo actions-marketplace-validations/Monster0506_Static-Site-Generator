@@ -90,6 +90,25 @@ async function buildCss(distDir: string) {
     }
 }
 
+
+async function buildIndex(items){
+            
+            let htmlContent=(<ul>
+                {items.map(({title, hash, date}, index) => (
+                    <li key={index}>
+                        <a href={hash + ".html"}>{title}</a><span> - </span>
+                        <span>{date.toLocaleDateString("en-US", {year: "numeric", month: "long", day: "numeric", timeZone: "UTC"})}</span>
+                    </li>
+                ))}
+            </ul>
+            )
+            const staticHtml = renderToStaticMarkup(<PageLayout title="Home" description="Home">{htmlContent}</PageLayout>);
+    
+
+    write("index.html", staticHtml);
+}
+
+
 async function build() {
     const pagesDir = "./_pages/";
     const distDir = "./dist/";
@@ -99,6 +118,7 @@ async function build() {
 
         const glob = new Bun.Glob("*.md");
         const files = [...glob.scanSync({cwd: pagesDir})];
+        let names = [];
         
         for (const file of files) {
             const shortName = file.replace(/\.md$/,"");
@@ -107,12 +127,15 @@ async function build() {
             const frontmatter = parseTOML(content);
             const body = stripFrontmatter(content);
             const date = parseDate(frontmatter.date);
-            const htmlContent = render(body, frontmatter.title?? "Untitled", date, hash);
-            const staticHtml = renderToStaticMarkup(<PageLayout title={frontmatter.title?? "Untitled"} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
+            const title= frontmatter.title?? "Untitled";
+            const htmlContent = render(body, title, date, hash);
+            const staticHtml = renderToStaticMarkup(<PageLayout title={title} description={frontmatter.description??""}>{htmlContent}</PageLayout>);
 
             write(hash+".html", staticHtml);
+            names.push({title, hash, date});
         }
-        
+        console.log(names);
+        buildIndex(names);
     }
     catch (error) {
         console.error(error)
