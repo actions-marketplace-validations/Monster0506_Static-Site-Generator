@@ -8,15 +8,50 @@ enum ParseState {
     P = 'P'
 }
 
+const inlineLinkRegex = /\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s]+)/g;
+
+function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
+    const nodes: React.ReactNode[] = [];
+    const regex = new RegExp(inlineLinkRegex);
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let idx = 0;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            nodes.push(text.slice(lastIndex, match.index));
+        }
+
+        if (match[1] !== undefined) {
+            nodes.push(<a key={`${keyPrefix}-link-${idx++}`} href={match[2]}>{match[1]}</a>);
+        } else {
+            let url = match[3];
+            const trailing = url.match(/[.,;:!?)]+$/)?.[0] ?? '';
+            url = url.slice(0, url.length - trailing.length);
+
+            nodes.push(<a key={`${keyPrefix}-link-${idx++}`} href={url}>{url.replace(/^https?:\/\//, '')}</a>);
+            if (trailing) nodes.push(trailing);
+        }
+
+        lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < text.length) {
+        nodes.push(text.slice(lastIndex));
+    }
+
+    return nodes;
+}
+
 function renderHeader(line: string, key: string) {
     const match = line.match(/^(#{1,6}) (.*)$/);
-    if (!match) return <p key={key}>{line}</p>;
-    
+    if (!match) return <p key={key}>{parseInline(line, key)}</p>;
+
     const level = match[1].length;
     const text = match[2];
     const Tag = `h${level}` as keyof JSX.IntrinsicElements;
-    
-    return <Tag key={key}>{text}</Tag>;
+
+    return <Tag key={key}>{parseInline(text, key)}</Tag>;
 }
 
 function flush(state: ParseState | null, curr: React.ReactNode[], key: string): React.ReactNode | null {
@@ -29,7 +64,12 @@ function flush(state: ParseState | null, curr: React.ReactNode[], key: string): 
         return <ol key={key}>{curr}</ol>;
     }
     if (state === ParseState.P) {
-        return <p key={key}>{curr.join(' ')}</p>;
+        const nodes: React.ReactNode[] = [];
+        curr.forEach((line, idx) => {
+            if (idx > 0) nodes.push(' ');
+            nodes.push(...parseInline(line as string, `${key}-p-${idx}`));
+        });
+        return <p key={key}>{nodes}</p>;
     }
     return null;
 }
@@ -76,7 +116,7 @@ export function markdownToHtml(content: string) {
 
             state = nextState;
             const contentText = line.slice(listMatch[0].length);
-            curr.push(<li key={`li-${i}`}>{contentText}</li>);
+            curr.push(<li key={`li-${i}`}>{parseInline(contentText, `li-${i}`)}</li>);
             continue;
         }
 
